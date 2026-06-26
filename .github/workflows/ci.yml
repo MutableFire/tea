@@ -303,10 +303,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libevent-2.1-7 \
-            libipc-run-perl \
             libxerces-c3.2 \
-            libxml2 \
             python2 \
             software-properties-common
 
