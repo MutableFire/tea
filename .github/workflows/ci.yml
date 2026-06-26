@@ -41,41 +41,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            bison \
-            cmake \
-            curl \
-            flex \
-            git \
-            iproute2 \
-            iputils-ping \
             libapr1-dev \
-            libaprutil1-dev \
-            libbz2-dev \
             libcurl4-openssl-dev \
             libevent-dev \
-            libipc-run-perl \
             libkrb5-dev \
-            libpam-dev \
             libperl-dev \
-            libreadline-dev \
-            libssl-dev \
-            libtool \
-            libuv1-dev \
             libxerces-c-dev \
-            libxml2-dev \
-            libxslt-dev \
-            libyaml-dev \
-            libzstd-dev \
-            locales \
-            net-tools \
-            openssh-client \
-            openssh-server \
-            pkg-config \
             python2 \
             python2-dev \
             redis-server \
-            rsync \
-            zlib1g-dev \
             software-properties-common
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get install -y gcc-13 g++-13
