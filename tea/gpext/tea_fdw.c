@@ -376,13 +376,6 @@ static void TeaGetForeignPaths(PlannerInfo* root, RelOptInfo* baserel, Oid forei
                                  NULL, /* no outer rel either */
                                  fpinfo->retrieved_attrs);
   add_path(baserel, (Path*)path);
-
-  /*
-   * If we're not using remote estimates, stop here.  We have no way to
-   * estimate whether any join clauses would be worth sending across, so
-   * don't bother building parameterized paths.
-   */
-  return;
 }
 
 /*
@@ -678,8 +671,6 @@ static void FetchDataToVirtualTuple(TeaScanState* fsstate, MemoryContext tuple_c
   PG_CATCH();
   PG_RE_THROW();
   PG_END_TRY();
-
-  return;
 }
 
 /*
