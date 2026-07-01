@@ -78,14 +78,16 @@ jobs:
       - name: Build and install Greenplum 6
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
-          git clone https://github.com/arenadata/gpdb.git -b 6.29.1_arenadata68 --depth 1
-          cd gpdb
-          git submodule update --init
-          : # TODO(gmusya): consider using --enable-cassert
-          ./configure --with-perl --with-python --with-libxml --with-gssapi --with-pythonsrc-ext --prefix=$HOME/local/gpdb
-          make -j8
-          make -j8 install
-          rm -rf gpdb
+          wget https://github.com/GreengageDB/greengage/releases/download/6.29.2/greengage6.deb -O /tmp/greengage6.deb
+          echo "97471d4d39333463b4d9413c3cc0e423cda2b227e37723b22d829064ee87dae1 /tmp/greengage6.deb" | sha256sum -c
+          sudo dpkg -i /tmp/greengage6.deb
+          sudo apt-get install -f -y
+          GP_PATH=$(find /usr/local -maxdepth 2 -name "greenplum_path.sh" -exec dirname {} \; | head -n 1)
+          if [ -z "$GP_PATH" ]; then exit 1; fi
+          mkdir -p $HOME/local
+          ln -s "$GP_PATH" $HOME/local/gpdb
+          source $HOME/local/gpdb/greenplum_path.sh
+
 
       - name: Build and install Arrow 15
         if: steps.cache-deps.outputs.cache-hit != 'true'
