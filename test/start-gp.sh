@@ -24,6 +24,23 @@ done
 # shellcheck disable=SC1091
 source "$gp_root"/greenplum_path.sh
 
+export GPHOME="$gp_root"
+export PATH="$GPHOME/bin:$PATH"
+
+if [ ! -d "$GPHOME/bin" ]; then
+  echo "ERROR: GPHOME/bin not found at $GPHOME/bin" >&2
+  echo "GPHOME is set to: $GPHOME" >&2
+  ls -la "$GPHOME" >&2
+  exit 1
+fi
+
+if ! command -v gpinitsystem &> /dev/null; then
+  echo "ERROR: gpinitsystem not found in PATH ($PATH)" >&2
+  echo "Looking for gpinitsystem in $GPHOME..." >&2
+  find "$GPHOME" -name "gpinitsystem" 2>/dev/null >&2 || true
+  exit 1
+fi
+
 mkdir "$config_dir" "$master_dir" "${seg_dirs[@]}"
 readonly hostlist="$config_dir/hostlist"
 echo "$HOSTNAME" >"$hostlist"
