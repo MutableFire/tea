@@ -8,6 +8,7 @@
 #include "access/reloptions.h"
 #include "access/sysattr.h"
 #include "catalog/namespace.h"
+#include "catalog/pg_foreign_table.h"
 #include "cdb/cdbsreh.h"
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
@@ -1033,5 +1034,31 @@ Datum tea_fdw_handler(PG_FUNCTION_ARGS) {
  * USER MAPPING or FOREIGN TABLE that uses tea_fdw.
  *
  * Raise an ERROR if the option or its value is considered invalid.
+ * Specifically ensures 'location' is present for foreign tables to prevent segfaults.
  */
-Datum tea_fdw_validator(PG_FUNCTION_ARGS) { PG_RETURN_VOID(); }
+Datum tea_fdw_validator(PG_FUNCTION_ARGS) {
+  List* options_list = untransformRelOptions(PG_GETARG_DATUM(0));
+  Oid catalog = PG_GETARG_OID(1);
+  ListCell* cell;
+  bool location_found = false;
+
+  foreach (cell, options_list) {
+    DefElem* def = (DefElem*)lfirst(cell);
+    char* val = def->arg ? strVal(def->arg) : NULL;
+
+    if (strcmp(def->defname, "location") == 0) {
+      if (!val || !*val)
+        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("option \"location\" value cannot be empty")));
+      location_found = true;
+    } else {
+      ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("invalid option \"%s\"", def->defname),
+                      errhint("Valid options for tea_fdw are: location")));
+    }
+  }
+
+  if (catalog == ForeignTableRelationId && !location_found)
+    ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("missing required option \"location\""),
+                    errdetail("The TEA foreign data wrapper requires the \"location\" option.")));
+
+  PG_RETURN_VOID();
+}
