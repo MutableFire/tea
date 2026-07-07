@@ -578,7 +578,9 @@ class LowercaseRenamingStream : public iceberg::IcebergStream {
 };
 
 arrow::Status Reader::Plan(meta::PlannedMeta meta, const Reader::SerializedFilter& filter, bool postfilter_on_gp) {
-  schema_ = meta.GetDeletes().schema;
+  const auto& deletes_with_schema = meta.GetDeletes();
+  schema_ = deletes_with_schema.schema;
+  auto schema_name_mapping = deletes_with_schema.schema_name_mapping;
   iceberg::Ensure(schema_ != nullptr, std::string(__PRETTY_FUNCTION__) + ": schema is nullptr");
 
   // empty table
@@ -603,8 +605,8 @@ arrow::Status Reader::Plan(meta::PlannedMeta meta, const Reader::SerializedFilte
   auto equality_deletes = std::make_shared<iceberg::EqualityDeletes>(iceberg::EqualityDeletes{});
   iceberg::EqualityDeleteHandler::Config equality_delete_config = MakeIcebergEqualityDeleteConfig(config_);
 
-  for (size_t partition_id = 0; partition_id < meta.GetDeletes().partitions.size(); ++partition_id) {
-    auto& partition = meta.GetDeletes().partitions.at(partition_id);
+  for (size_t partition_id = 0; partition_id < deletes_with_schema.partitions.size(); ++partition_id) {
+    auto& partition = deletes_with_schema.partitions.at(partition_id);
     for (size_t layer_id = 0; layer_id < partition.size(); ++layer_id) {
       auto& layer = partition[layer_id];
       if (!layer.positional_delete_entries_.empty()) {
@@ -699,7 +701,8 @@ arrow::Status Reader::Plan(meta::PlannedMeta meta, const Reader::SerializedFilte
 
   stream_ = iceberg::IcebergScanBuilder::MakeIcebergStream(
       meta_stream, std::move(positional_deletes), std::move(equality_deletes), std::move(equality_delete_config),
-      rg_filter, ice_filter, *schema_, std::move(field_ids_to_retrieve), file_reader_provider, std::nullopt, logger_);
+      rg_filter, ice_filter, *schema_, std::move(field_ids_to_retrieve), file_reader_provider, schema_name_mapping,
+      logger_);
 
   stream_ = std::make_shared<LowercaseRenamingStream>(stream_);
   return arrow::Status::OK();

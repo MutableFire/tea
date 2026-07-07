@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <map>
 #include <memory>
 #include <string>
 #include <utility>
@@ -42,6 +43,9 @@ class IMetadataWriter {
   virtual arrow::Status AddEqualityDeleteFiles(const std::vector<iceberg::FilePath>& paths,
                                                const std::vector<int32_t>& field_ids) = 0;
   virtual arrow::Result<Location> Finalize() = 0;
+
+  virtual void SetSchema(std::shared_ptr<iceberg::Schema>) = 0;
+  virtual void SetProperties(std::map<std::string, std::string>) = 0;
 
   virtual ~IMetadataWriter() = default;
 };
@@ -297,7 +301,17 @@ class IcebergMetadataWriter : public IMetadataWriter {
                                          " for column " + column->name());
   }
 
+  void SetSchema(std::shared_ptr<iceberg::Schema> schema) override { forced_schema_ = std::move(schema); }
+
+  void SetProperties(std::map<std::string, std::string> properties) override {
+    table_properties_ = std::move(properties);
+  }
+
   arrow::Result<std::shared_ptr<iceberg::Schema>> GetSchema() const {
+    if (forced_schema_) {
+      return forced_schema_;
+    }
+
     if (!some_data_path_.has_value()) {
       return arrow::Status::ExecutionError("No data file to extract schema");
     }
@@ -379,6 +393,7 @@ class IcebergMetadataWriter : public IMetadataWriter {
         std::make_shared<iceberg::SortOrder>(iceberg::SortOrder{.order_id = 0, .fields = {}}));
     builder.default_sort_order_id = 0;
     builder.partition_specs = {std::make_shared<iceberg::PartitionSpec>(partition_spec_)};
+    builder.properties = table_properties_;
 
     std::shared_ptr<iceberg::TableMetadataV2> meta = builder.Build();
     {
@@ -414,6 +429,9 @@ class IcebergMetadataWriter : public IMetadataWriter {
   std::optional<iceberg::FilePath> some_data_path_;
   const std::string profile_;
   const iceberg::PartitionSpec partition_spec_;
+
+  std::shared_ptr<iceberg::Schema> forced_schema_;
+  std::map<std::string, std::string> table_properties_;
 
   uint64_t data_files_count_ = 0;
   uint64_t delete_files_count_ = 0;
