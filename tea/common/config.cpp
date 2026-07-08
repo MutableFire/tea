@@ -496,7 +496,6 @@ arrow::Status ReadValues(Source* src, Config* config, std::string_view section_p
 }
 
 arrow::Status Load(const rapidjson::Document& document, std::string_view profile, Config* config) {
-  LoadEnvDefaults(config);
   if (!document.IsObject()) {
     return arrow::Status::ExecutionError("Invalid tea-config.json flie: root is not an object");
   }

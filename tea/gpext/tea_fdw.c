@@ -44,6 +44,10 @@
 #include "utils/sampling.h"
 #endif
 
+#ifdef FDW_GET_CREATE_QUERY
+#include "utils/builtins.h"
+#endif
+
 #include "tea/filter/gp/convert.h"
 #include "tea/gpext/tea_column.h"
 #include "tea/gpext/tea_common.h"
@@ -56,6 +60,9 @@
 
 PG_FUNCTION_INFO_V1(tea_fdw_handler);
 PG_FUNCTION_INFO_V1(tea_fdw_validator);
+#ifdef FDW_GET_CREATE_QUERY
+PG_FUNCTION_INFO_V1(tea_fdw_get_create_query);
+#endif
 
 /*
  * Indexes of FDW-private information stored in fdw_private lists.
@@ -1034,31 +1041,52 @@ Datum tea_fdw_handler(PG_FUNCTION_ARGS) {
  * USER MAPPING or FOREIGN TABLE that uses tea_fdw.
  *
  * Raise an ERROR if the option or its value is considered invalid.
- * Specifically ensures 'location' is present for foreign tables to prevent segfaults.
  */
 Datum tea_fdw_validator(PG_FUNCTION_ARGS) {
-  List* options_list = untransformRelOptions(PG_GETARG_DATUM(0));
   Oid catalog = PG_GETARG_OID(1);
-  ListCell* cell;
-  bool location_found = false;
+  List* options_list;
+  DefElem* def;
+  char* val;
+  static const char* const require_location_msg =
+      "The TEA foreign data wrapper requires exactly one option: \"location\".";
 
-  foreach (cell, options_list) {
-    DefElem* def = (DefElem*)lfirst(cell);
-    char* val = def->arg ? strVal(def->arg) : NULL;
+  if (catalog != ForeignTableRelationId) PG_RETURN_VOID();
 
-    if (strcmp(def->defname, "location") == 0) {
-      if (!val || !*val)
-        ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("option \"location\" value cannot be empty")));
-      location_found = true;
+  options_list = untransformRelOptions(PG_GETARG_DATUM(0));
+
+  if (list_length(options_list) != 1) {
+    if (list_length(options_list) == 0) {
+      ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("missing required option \"location\""),
+                      errdetail("%s", require_location_msg)));
     } else {
-      ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("invalid option \"%s\"", def->defname),
-                      errhint("Valid options for tea_fdw are: location")));
+      ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("too many options provided"),
+                      errdetail("%s", require_location_msg), errhint("Remove extra options.")));
     }
   }
 
-  if (catalog == ForeignTableRelationId && !location_found)
-    ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("missing required option \"location\""),
-                    errdetail("The TEA foreign data wrapper requires the \"location\" option.")));
+  def = (DefElem*)linitial(options_list);
 
+  if (strcmp(def->defname, "location") != 0) {
+    ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("invalid option \"%s\"", def->defname),
+                    errhint("The only valid option for TEA foreign tables is \"location\".")));
+  }
+
+  val = def->arg ? strVal(def->arg) : NULL;
+  if (!val || !*val) {
+    ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("option \"location\" value cannot be empty")));
+  }
+
+  list_free(options_list);
   PG_RETURN_VOID();
 }
+
+#ifdef FDW_GET_CREATE_QUERY
+Datum tea_fdw_get_create_query(PG_FUNCTION_ARGS) {
+  char* name = text_to_cstring(PG_GETARG_TEXT_P(0));
+  char* location = text_to_cstring(PG_GETARG_TEXT_P(1));
+  char* query = TeaFDWGetCreateQuery(name, location);
+  pfree(location);
+  pfree(name);
+  PG_RETURN_CSTRING(query);
+}
+#endif

@@ -23,6 +23,4 @@ char* TeaGetLocation(Oid foreigntableid) {
                   errmsg("missing required option \"location\" for foreign table %u", foreigntableid),
                   errdetail("The TEA foreign data wrapper requires the \"location\" option to be specified."),
                   errhint("Recreate the foreign table with OPTIONS (location '...').")));
-
-  return NULL;
 }

@@ -76,13 +76,14 @@ std::shared_ptr<SingleQueueClient> MakeSamovarDataClient(const SamovarConfig& co
 }
 
 arrow::Result<PlannerStats> FillSamovarWithManifests(const Config& config, std::shared_ptr<iceberg::Schema> schema,
+                                                     std::optional<std::string> schema_name_mapping,
                                                      std::deque<iceberg::ManifestFile> manifests, int segment_count,
                                                      std::shared_ptr<SingleQueueClient> samovar_client) {
   PlannerStats stats;
   std::optional<ScopedTimerTicks> timer = ScopedTimerTicks(stats.plan_duration);
 
   samovar::ScanMetadata result;
-  *result.mutable_schema() = IcebergSchemaToTeapotSchema(schema);
+  AttachSchema(result, schema, schema_name_mapping);
 
   std::vector<samovar::ManifestList> samovar_manifests = ConvertToSamovarManifestLists(manifests);
 
@@ -361,7 +362,7 @@ arrow::Result<std::pair<meta::PlannedMeta, PlannerStats>> FromSamovar(
   auto response = samovar_client->GetPlannedMetadata();
   if (response.scan_already_finished()) {
     iceberg::ice_tea::ScanMetadata metadata;
-    metadata.schema = TeapotSchemaToIcebergSchema(response.schema());
+    AttachSchema(metadata, response);
 
     auto sched = std::make_shared<EmptyMetadataScheduler>();
 
@@ -397,7 +398,7 @@ arrow::Result<std::pair<meta::PlannedMeta, PlannerStats>> FromSamovar(
     samovar_client->WaitForManifestsQueue();
 
     iceberg::ice_tea::ScanMetadata metadata;
-    metadata.schema = TeapotSchemaToIcebergSchema(response.schema());
+    AttachSchema(metadata, response);
 
     // process tasks from the entries queue
     auto sched = std::make_shared<SamovarMetadataScheduler>(config, samovar_client);
