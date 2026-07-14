@@ -8,6 +8,7 @@
 #include "access/reloptions.h"
 #include "access/sysattr.h"
 #include "catalog/namespace.h"
+#include "catalog/pg_foreign_table.h"
 #include "cdb/cdbsreh.h"
 #include "cdb/cdbutil.h"
 #include "cdb/cdbvars.h"
@@ -1041,7 +1042,43 @@ Datum tea_fdw_handler(PG_FUNCTION_ARGS) {
  *
  * Raise an ERROR if the option or its value is considered invalid.
  */
-Datum tea_fdw_validator(PG_FUNCTION_ARGS) { PG_RETURN_VOID(); }
+Datum tea_fdw_validator(PG_FUNCTION_ARGS) {
+  Oid catalog = PG_GETARG_OID(1);
+  List* options_list;
+  DefElem* def;
+  char* val;
+  static const char* const require_location_msg =
+      "The TEA foreign data wrapper requires exactly one option: \"location\".";
+
+  if (catalog != ForeignTableRelationId) PG_RETURN_VOID();
+
+  options_list = untransformRelOptions(PG_GETARG_DATUM(0));
+
+  if (list_length(options_list) != 1) {
+    if (list_length(options_list) == 0) {
+      ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("missing required option \"location\""),
+                      errdetail("%s", require_location_msg)));
+    } else {
+      ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("too many options provided"),
+                      errdetail("%s", require_location_msg), errhint("Remove extra options.")));
+    }
+  }
+
+  def = (DefElem*)linitial(options_list);
+
+  if (strcmp(def->defname, "location") != 0) {
+    ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("invalid option \"%s\"", def->defname),
+                    errhint("The only valid option for TEA foreign tables is \"location\".")));
+  }
+
+  val = def->arg ? strVal(def->arg) : NULL;
+  if (!val || !*val) {
+    ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE), errmsg("option \"location\" value cannot be empty")));
+  }
+
+  list_free(options_list);
+  PG_RETURN_VOID();
+}
 
 #ifdef FDW_GET_CREATE_QUERY
 Datum tea_fdw_get_create_query(PG_FUNCTION_ARGS) {

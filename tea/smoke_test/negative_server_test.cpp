@@ -114,6 +114,75 @@ TEST_F(NegativeServer, NoSuchTable) {
   EXPECT_LE(total_duration, 1000);
 }
 
+TEST_F(NegativeServer, NoLocationOptions) {
+  if (Environment::GetTableType() == TestTableType::kExternal) {
+    return;
+  }
+
+  const char* sql =
+      "CREATE FOREIGN TABLE test_no_options (id int8, val text) "
+      "SERVER tea_server";
+
+  PGresult* res = PQexec(conn_->Ptr(), sql);
+
+  ASSERT_NE(res, nullptr);
+  ExecStatusType status = PQresultStatus(res);
+
+  EXPECT_EQ(status, PGRES_FATAL_ERROR) << "Server should reject table creation without any options.";
+
+  const char* err_msg = PQresultErrorMessage(res);
+  EXPECT_TRUE(strstr(err_msg, "missing required option \"location\"") != nullptr)
+      << "Error message should mention missing 'location' option. Got: " << err_msg;
+
+  PQclear(res);
+}
+
+TEST_F(NegativeServer, EmptyLocationValue) {
+  if (Environment::GetTableType() == TestTableType::kExternal) {
+    return;
+  }
+
+  const char* sql =
+      "CREATE FOREIGN TABLE test_empty_location (id int8, val text) "
+      "SERVER tea_server OPTIONS (location '');";
+
+  PGresult* res = PQexec(conn_->Ptr(), sql);
+
+  ASSERT_NE(res, nullptr);
+  ExecStatusType status = PQresultStatus(res);
+
+  EXPECT_EQ(status, PGRES_FATAL_ERROR);
+
+  const char* err_msg = PQresultErrorMessage(res);
+  EXPECT_TRUE(strstr(err_msg, "option \"location\" value cannot be empty") != nullptr)
+      << "Error message should mention empty value. Got: " << err_msg;
+
+  PQclear(res);
+}
+
+TEST_F(NegativeServer, InvalidLocationOption) {
+  if (Environment::GetTableType() == TestTableType::kExternal) {
+    return;
+  }
+
+  const char* sql =
+      "CREATE FOREIGN TABLE test_invalid_option (id int8, val text) "
+      "SERVER tea_server OPTIONS (unknown_param 'value');";
+
+  PGresult* res = PQexec(conn_->Ptr(), sql);
+
+  ASSERT_NE(res, nullptr);
+  ExecStatusType status = PQresultStatus(res);
+
+  EXPECT_EQ(status, PGRES_FATAL_ERROR);
+
+  const char* err_msg = PQresultErrorMessage(res);
+  EXPECT_TRUE(strstr(err_msg, "invalid option \"unknown_param\"") != nullptr)
+      << "Error message should mention invalid option. Got: " << err_msg;
+
+  PQclear(res);
+}
+
 TEST_F(OtherEngineGeneratedTable, NoS3) {
   if (Environment::GetMetadataType() != MetadataType::kIceberg || Environment::GetProfile() != "") {
     return;
