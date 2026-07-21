@@ -105,78 +105,6 @@ void ForEachDataEntry(std::shared_ptr<iceberg::ice_tea::IcebergEntriesStream> en
   }
 }
 
-#ifdef TEA_BUILD_STATS
-std::optional<int64_t> GetValueCounts(const iceberg::ManifestEntry& entry, int32_t field_id) {
-  for (const auto& [id, cnt] : entry.data_file.value_counts) {
-    if (id == field_id) {
-      return cnt;
-    }
-  }
-  return std::nullopt;
-}
-
-std::optional<int64_t> GetColumnSize(const iceberg::ManifestEntry& entry, int32_t field_id) {
-  for (const auto& [id, cnt] : entry.data_file.column_sizes) {
-    if (id == field_id) {
-      return cnt;
-    }
-  }
-  return std::nullopt;
-}
-
-ColumnStats GetColumnStats(const iceberg::ManifestEntry& entry, int32_t field_id) {
-  uint64_t total_rows = entry.data_file.record_count;
-  std::optional<int64_t> value_count = GetValueCounts(entry, field_id);
-  std::optional<int64_t> column_size = GetColumnSize(entry, field_id);
-
-  ColumnStats result{.null_count = -1,
-                     .distinct_count = -1,
-                     .not_null_count = -1,
-                     .total_compressed_size = -1,
-                     .total_uncompressed_size = -1};
-
-  if (value_count.has_value()) {
-    result.not_null_count = value_count.value();
-    result.null_count = total_rows - value_count.value();
-  }
-
-  if (column_size.has_value()) {
-    result.total_compressed_size = column_size.value();
-    // TODO(gmusya): estimate total_uncompressed_size
-  }
-
-  return result;
-}
-
-void Add(ColumnStats& base, const ColumnStats& addition) {
-  base.distinct_count = -1;
-
-  if (addition.not_null_count == -1 || base.not_null_count == -1) {
-    base.not_null_count = -1;
-  } else {
-    base.not_null_count += addition.not_null_count;
-  }
-
-  if (addition.null_count == -1 || base.null_count == -1) {
-    base.null_count = -1;
-  } else {
-    base.null_count += addition.null_count;
-  }
-
-  if (addition.total_uncompressed_size == -1 || base.total_uncompressed_size == -1) {
-    base.total_uncompressed_size = -1;
-  } else {
-    base.total_uncompressed_size += addition.total_uncompressed_size;
-  }
-
-  if (addition.total_compressed_size == -1 || base.total_compressed_size == -1) {
-    base.total_compressed_size = -1;
-  } else {
-    base.total_compressed_size += addition.total_compressed_size;
-  }
-}
-#endif
-
 class TableStatsAggregator {
  public:
   explicit TableStatsAggregator(const std::vector<iceberg::types::NestedField>& columns)
@@ -302,40 +230,5 @@ arrow::Result<RelationSize> Estimator::GetRelationSizeFromDataFiles(
   });
   return RelationSize{.rows = double(rows), .width = 40};
 }
-
-#ifdef TEA_BUILD_STATS
-arrow::Result<ColumnStats> Estimator::GetIcebergColumnStats(const Config& config, TableId table_id,
-                                                            const std::string& column_name,
-                                                            std::shared_ptr<iceberg::IFileSystemProvider> fs_provider,
-                                                            SnapshotRef snapshot_ref) {
-  ARROW_ASSIGN_OR_RAISE(auto iceberg_info, IcebergInfoFromConfig(config, table_id, fs_provider, snapshot_ref));
-  auto table_metadata = iceberg_info.table_metadata;
-  auto entries_stream = iceberg_info.entries_stream;
-
-  auto schema = tea::GetSchemaForSnapshot(table_metadata, snapshot_ref);
-
-  int field_id = -1;
-  {
-    auto maybe_field_id = schema->FindColumnIgnoreCase(column_name);
-    if (!maybe_field_id.has_value()) {
-      return arrow::Status::ExecutionError("GetIcebergColumnStats: Column ", column_name, " not found in schema");
-    }
-    field_id = maybe_field_id.value();
-  }
-
-  ColumnStats result{.null_count = 0,
-                     .distinct_count = 0,
-                     .not_null_count = 0,
-                     .total_compressed_size = 0,
-                     .total_uncompressed_size = 0};
-
-  ForEachDataEntry(entries_stream, [&](const iceberg::ManifestEntry& entry) {
-    ColumnStats task_stats = GetColumnStats(entry, field_id);
-    Add(result, task_stats);
-  });
-
-  return result;
-}
-#endif
 
 }  // namespace tea::meta

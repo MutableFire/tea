@@ -6,12 +6,6 @@ if(TEA_BUILD_FDW)
   target_sources(tea PRIVATE tea_fdw.c tea_fdw_proj.c tea_fdw_options.c)
 endif()
 
-# TODO(gmusya): enable or remove
-# if(TEA_BUILD_STATS)
-  # add_compile_definitions(-DTEA_BUILD_STATS)
-  # target_sources(tea PRIVATE tea_stats.c)
-# endif()
-
 target_include_directories(tea PRIVATE ${CMAKE_SOURCE_DIR}
                                        ${Greenplum_INCLUDE_SERVER})
 
