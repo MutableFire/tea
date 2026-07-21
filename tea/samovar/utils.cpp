@@ -71,7 +71,8 @@ samovar::ScanMetadata ConvertIcebergScanMetaToSamovarRepresentation(iceberg::ice
   };
 
   samovar::ScanMetadata result;
-  *result.mutable_schema() = IcebergSchemaToTeapotSchema(scan_metadata.schema);
+  AttachSchema(result, scan_metadata.schema, scan_metadata.schema_name_mapping);
+
   for (const auto& partition : scan_metadata.partitions) {
     auto* samovar_partition = result.add_partitions();
     for (const auto& layer : partition) {
@@ -139,7 +140,7 @@ iceberg::ice_tea::ScanMetadata ConvertSamovarRepresentationToScanMeta(const samo
     result.partitions.push_back(std::move(ice_partition));
   }
 
-  result.schema = TeapotSchemaToIcebergSchema(scan_metadata.schema());
+  AttachSchema(result, scan_metadata);
 
   return result;
 }
@@ -475,6 +476,9 @@ void SendManifestLists(const std::shared_ptr<ISamovarClient> client,
 samovar::ScanMetadata ClearDataEntries(const samovar::ScanMetadata& scan_metadata) {
   samovar::ScanMetadata result;
   *result.mutable_schema() = scan_metadata.schema();
+  if (scan_metadata.has_schema_name_mapping()) {
+    result.set_schema_name_mapping(scan_metadata.schema_name_mapping());
+  }
   result.set_use_distributed_metadata_processing(scan_metadata.use_distributed_metadata_processing());
   for (int i = 0; i < scan_metadata.partitions_size(); ++i) {
     const auto& partition = scan_metadata.partitions()[i];

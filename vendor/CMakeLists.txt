@@ -31,7 +31,10 @@ FetchContent_Declare(
   EXCLUDE_FROM_ALL
   GIT_REPOSITORY ${GITHUB}/lithium-tech/iceberg-cxx.git
   GIT_TAG 3e148ac96d07e9bd3a07dbe9a6ae2efdc6559f2a
+  PATCH_COMMAND git reset --hard HEAD
+    && git apply ${CMAKE_CURRENT_SOURCE_DIR}/iceberg-cxx/0001-scan-metadata-schema-name-mapping.patch
 )
+# TODO(gmusya): support schema.name-mapping.default in GetScanMetadata and add this patch to iceberg-cxx
 
 FetchContent_MakeAvailable(googletest hiredis)
 
