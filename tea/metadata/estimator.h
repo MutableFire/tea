@@ -20,13 +20,6 @@ struct RelationSize {
 
 class Estimator {
  public:
-#ifdef TEA_BUILD_STATS
-  static arrow::Result<ColumnStats> GetIcebergColumnStats(const Config& config, TableId table_id,
-                                                          const std::string& column_name,
-                                                          std::shared_ptr<iceberg::IFileSystemProvider> fs_provider,
-                                                          SnapshotRef snapshot_ref = CurrentSnapshot{});
-#endif
-
   static arrow::Result<RelationSize> GetRelationSizeFromIceberg(
       const Config& config, TableId table_id, std::shared_ptr<iceberg::IFileSystemProvider> fs_provider,
       SnapshotRef snapshot_ref = CurrentSnapshot{});

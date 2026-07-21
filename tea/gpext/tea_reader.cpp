@@ -1271,31 +1271,6 @@ void TeaContextGetRelationSize(TeaContextPtr tea_ctx, const char* session_id, co
   });
 }
 
-#ifdef TEA_BUILD_STATS
-// TODO(gmusya): semantic of this function is weird, fix it
-void TeaContextGetIcebergColumnStats(const char* url, const char* session_id, const char* column_name,
-                                     ColumnStats* result) {
-  TEA_INVOKE_IN_HELPER_THREAD(ERROR, [=] {
-    tea::TableConfig table_config = tea::ConfigSource::GetTableConfig(url);
-
-    auto table_type = TableTypeFromConfig(table_config);
-    if (table_type != tea::TableType::kTeapot && table_type != tea::TableType::kIceberg) {
-      throw arrow::Status::ExecutionError("GetIcebergColumnStats supported only for teapot and iceberg tables");
-    }
-
-    bool is_iceberg = table_type == tea::TableType::kIceberg;
-
-    const auto table_id = is_iceberg ? std::get<tea::IcebergTable>(table_config.source).table_id
-                                     : std::get<tea::TeapotTable>(table_config.source).table_id;
-    const auto res = tea::meta::Estimator::GetIcebergColumnStats(table_config.config, table_id, column_name,
-                                                                 MakeFileSystemProvider(table_config.config),
-                                                                 table_config.snapshot_ref);
-    TEA_RETURN_ARROW_NOT_OK(res);
-    *result = res.ValueUnsafe();
-  });
-}
-#endif
-
 static void SetOptions(ReaderOptions* options, const tea::Config& config) {
   options->use_custom_heap_form_tuple = config.features.use_custom_heap_form_tuple;
   options->ext_table_filter_walker_for_projection = config.features.ext_table_filter_walker_for_projection;

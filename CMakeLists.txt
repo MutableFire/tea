@@ -49,10 +49,6 @@ add_subdirectory(vendor)
 
 #
 
-if(TEA_BUILD_STATS)
-  add_compile_definitions(TEA_BUILD_STATS)
-endif()
-
 if(TEA_BUILD_FDW)
   add_compile_definitions(TEA_BUILD_FDW)
 endif()
