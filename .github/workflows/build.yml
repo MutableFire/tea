@@ -106,7 +106,7 @@ jobs:
           fi
 
           source "$TARGET_DIR/greenplum_path.sh"
-          echo "Greenplum ready at: $GPHOME"
+          echo "Greenplum ready: $GPHOME"
 
       - name: Build and install Arrow 15
         run: bash ci/build-arrow.sh
